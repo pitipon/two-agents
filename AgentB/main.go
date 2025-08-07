@@ -1,11 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
+	"os"
+
+	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -19,6 +24,13 @@ type Message struct {
 }
 
 func main() {
+	// Load .env file
+	godotenv.Load()
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey == "" {
+		panic("Please set GEMINI_API_KEY in .env file")
+	}
+
 	rdb := redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
 		DB:   0, // use default DB)
@@ -40,7 +52,7 @@ func main() {
 				From:    "agent_planner",
 				To:      message.From,
 				Task:    "plan_learning",
-				Content: planLearning(message.Content),
+				Content: planLearning(message.Content, apiKey),
 			}
 
 			jsonReply, _ := json.Marshal(reply)
@@ -50,16 +62,68 @@ func main() {
 	}
 }
 
-func planLearning(goal string) string {
-	if strings.Contains(strings.ToLower(goal), "ai") {
-		return strings.Join([]string{
-			"1. Learn Python basics",
-			"2. Understand ML concepts (supervised, unsupervised)",
-			"3. Practice with Scikit-learn",
-			"4. Try real datasets (e.g., Kaggle)",
-			"5. Explore deep learning with PyTorch or TensorFlow",
-		}, "\n")
+func callGeminiAPI(prompt string, apiKey string) (string, error) {
+	url := "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey
+
+	body := map[string]interface{}{
+		"contents": []map[string]interface{}{
+			{
+				"parts": []map[string]string{
+					{"text": prompt},
+				},
+			},
+		},
 	}
 
-	return "Research topic not recognized for AI learning plan."
+	jsonData, _ := json.Marshal(body)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("Gemini API error: %v", result)
+	}
+
+	if candidates, ok := result["candidates"].([]interface{}); ok && len(candidates) > 0 {
+		first := candidates[0].(map[string]interface{})
+		content := first["content"].(map[string]interface{})
+		parts := content["parts"].([]interface{})
+		text := parts[0].(map[string]interface{})["text"].(string)
+		return text, nil
+	}
+
+	return "Failed to get response from Gemini", nil
+}
+
+func planLearning(goal string, apiKey string) string {
+	prompt := fmt.Sprintf("Help me create a step-by-step learning plan for: %s", goal)
+	response, err := callGeminiAPI(prompt, apiKey)
+	if err != nil {
+		return "Error occurred while calling Gemini API"
+	}
+
+	lines := strings.Split(response, "\n")
+	var steps []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			steps = append(steps, line)
+		}
+	}
+
+	return strings.Join(steps, "\n")
 }
