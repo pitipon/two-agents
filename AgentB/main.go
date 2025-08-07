@@ -27,14 +27,14 @@ func main() {
 	sub := rdb.Subscribe(ctx, "agent-channel")
 	ch := sub.Channel()
 
-	fmt.Println("AgentB is listening for messages...")
+	fmt.Println("Agent_Planner is listening for messages...")
 
 	for msg := range ch {
 		var message Message
 		json.Unmarshal([]byte(msg.Payload), &message)
 
 		if message.To == "agent_planner" {
-			fmt.Printf("Agent B received: %s\n", message.Task)
+			fmt.Printf("Agent_Planner received: %s\n", message.Task)
 
 			reply := Message{
 				From:    "agent_planner",
@@ -45,6 +45,7 @@ func main() {
 
 			jsonReply, _ := json.Marshal(reply)
 			rdb.Publish(ctx, "agent-channel", jsonReply)
+			fmt.Printf("Agent_Planner sent reply: %s\n", reply.Content)
 		}
 	}
 }

@@ -35,22 +35,24 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("Agent_Main: Message sent!")
 
-	// Subscribe to the channel to wait for a reply
-	sub := rdb.Subscribe(ctx, "agent-channel")
-	ch := sub.Channel()
-	fmt.Println("Agent A is waiting for a reply...")
+mainLoop:
+	for {
+		// Subscribe to the channel to wait for a reply
+		sub := rdb.Subscribe(ctx, "agent-channel")
+		ch := sub.Channel()
+		fmt.Println("Agent_Main is waiting for a reply...")
 
-	// Wait for a reply from Agent B
-	for msg := range ch {
-		var message Message
-		json.Unmarshal([]byte(msg.Payload), &message)
+		// Wait for a reply from Agent B
+		for msg := range ch {
+			var message Message
+			json.Unmarshal([]byte(msg.Payload), &message)
 
-		if message.To == "AgentA" {
-			fmt.Println("Agent A received:", message.Task)
-			break // Exit after receiving the reply
+			if message.To == "agent_main" {
+				fmt.Println("Agent_Main received:", message.Task, message.Content)
+				break mainLoop // Exit after receiving the reply
+			}
 		}
 	}
-
-	fmt.Println("Agent A: Message sent!")
 }
