@@ -11,9 +11,10 @@ import (
 var ctx = context.Background()
 
 type Message struct {
-	From string `json:"from"`
-	To   string `json:"to"`
-	Text string `json:"text"`
+	From    string `json:"from"`
+	To      string `json:"to"`
+	Task    string `json:"task"`
+	Content string `json:"content,omitempty"`
 }
 
 func main() {
@@ -23,9 +24,10 @@ func main() {
 	})
 
 	msg := Message{
-		From: "AgentA",
-		To:   "AgentB",
-		Text: "Hello from Agent A!",
+		From:    "agent_main",
+		To:      "agent_planner",
+		Task:    "plan_learning",
+		Content: "I want to learn React",
 	}
 
 	jsonMsg, _ := json.Marshal(msg)
@@ -33,6 +35,24 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("Agent_Main: Message sent!")
 
-	fmt.Println("Agent A: Message sent!")
+mainLoop:
+	for {
+		// Subscribe to the channel to wait for a reply
+		sub := rdb.Subscribe(ctx, "agent-channel")
+		ch := sub.Channel()
+		fmt.Println("Agent_Main is waiting for a reply...")
+
+		// Wait for a reply from Agent B
+		for msg := range ch {
+			var message Message
+			json.Unmarshal([]byte(msg.Payload), &message)
+
+			if message.To == "agent_main" {
+				fmt.Println("Agent_Main received:", message.Task, message.Content)
+				break mainLoop // Exit after receiving the reply
+			}
+		}
+	}
 }

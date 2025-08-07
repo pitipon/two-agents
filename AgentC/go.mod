@@ -1,4 +1,4 @@
-module github.com/pitipon/AgentB
+module github.com/pitipon/AgentC
 
 go 1.24.0
 
