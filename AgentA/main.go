@@ -27,7 +27,7 @@ func main() {
 		From:    "agent_main",
 		To:      "agent_planner",
 		Task:    "plan_learning",
-		Content: "I want to learn AI Agent fundamental",
+		Content: "I want to learn React",
 	}
 
 	jsonMsg, _ := json.Marshal(msg)
