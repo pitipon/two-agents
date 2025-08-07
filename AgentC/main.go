@@ -48,16 +48,19 @@ func main() {
 		if message.To == "agent_critic" {
 			fmt.Printf("Agent_Critic received: %s\n", message.Task)
 
+			critic := planLearning(message.Content, apiKey)
+			combinedContent := fmt.Sprintf("%s\nAgent Critic: %s", message.Content, critic)
+
 			reply := Message{
 				From:    "agent_critic",
-				To:      message.From,
+				To:      "agent_decider",
 				Task:    "plan_learning",
-				Content: planLearning(message.Content, apiKey),
+				Content: combinedContent,
 			}
 
 			jsonReply, _ := json.Marshal(reply)
 			rdb.Publish(ctx, "agent-channel", jsonReply)
-			fmt.Printf("Agent_Planner sent reply: %s\n", reply.Content)
+			fmt.Printf("Agent_Critic sent reply: %s\n", reply.Content)
 		}
 	}
 }
@@ -110,7 +113,12 @@ func callGeminiAPI(prompt string, apiKey string) (string, error) {
 }
 
 func planLearning(goal string, apiKey string) string {
-	prompt := fmt.Sprintf("Please critique or improve this learning plan: %s", goal)
+	prompt := fmt.Sprintf(
+		"Given the following learning plan: %s\n"+
+			"Please provide only 1 concise suggestions to improve or critique it. "+
+			"Keep your response under 1 sentences.",
+		goal,
+	)
 	response, err := callGeminiAPI(prompt, apiKey)
 	if err != nil {
 		return "Error occurred while calling Gemini API"

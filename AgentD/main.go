@@ -39,28 +39,27 @@ func main() {
 	sub := rdb.Subscribe(ctx, "agent-channel")
 	ch := sub.Channel()
 
-	fmt.Println("Agent_Planner is listening for messages...")
+	fmt.Println("Agent_Decider is listening for messages...")
 
 	for msg := range ch {
 		var message Message
 		json.Unmarshal([]byte(msg.Payload), &message)
 
-		if message.To == "agent_planner" {
-			fmt.Printf("Agent_Planner received: %s\n", message.Task)
+		if message.To == "agent_decider" {
+			fmt.Printf("Agent_Decider received: %s\n", message.Task)
 
-			plan := planLearning(message.Content, apiKey)
-			combinedContent := fmt.Sprintf("Agent Main: %s\nAgent Planning: %s", message.Content, plan)
+			final := planLearning(message.Content, apiKey)
 
 			reply := Message{
-				From:    "agent_planner",
-				To:      "agent_critic",
+				From:    "agent_decider",
+				To:      "agent_main",
 				Task:    "plan_learning",
-				Content: combinedContent,
+				Content: final,
 			}
 
 			jsonReply, _ := json.Marshal(reply)
 			rdb.Publish(ctx, "agent-channel", jsonReply)
-			fmt.Printf("Agent_Planner sent reply: %s\n", reply.Content)
+			fmt.Printf("Agent_Decider sent reply: %s\n", reply.Content)
 		}
 	}
 }
@@ -113,9 +112,10 @@ func callGeminiAPI(prompt string, apiKey string) (string, error) {
 }
 
 func planLearning(goal string, apiKey string) string {
-	prompt := fmt.Sprintf("Help me create a step-by-step learning plan for: %s", goal)
+	prompt := fmt.Sprintf("Help me decide on a learning plan as decider agent for: %s", goal)
 	response, err := callGeminiAPI(prompt, apiKey)
 	if err != nil {
+		fmt.Println(err)
 		return "Error occurred while calling Gemini API"
 	}
 
