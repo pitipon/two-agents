@@ -1,0 +1,55 @@
+services:
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  agentA:
+    build: .
+    image: twoagents-agenta
+    environment:
+      - MODE=async
+      - AGENT_ID=agentA
+      - AGENT_ROLE=You are the receiver who collects the main prompt.
+      - NEXT_AGENT_ID=agentB
+      - REDIS_ADDR=redis:6379
+    ports:
+      - "8081:8080"
+    depends_on:
+      - redis
+  
+  agentB:
+    build: .
+    image: twoagents-agentb
+    environment:
+      - MODE=async
+      - AGENT_ID=agentB
+      - AGENT_ROLE=You are the planner who makes a step-by-step plan.
+      - NEXT_AGENT_ID=agentC
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+
+  agentC:
+    build: .
+    image: twoagents-agentc
+    environment:
+      - MODE=async
+      - AGENT_ID=agentC
+      - AGENT_ROLE=You are the critic who reviews the plan.
+      - NEXT_AGENT_ID=agentD
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+
+  agentD:
+    build: .
+    image: twoagents-agentd
+    environment:
+      - MODE=async
+      - AGENT_ID=agentD
+      - AGENT_ROLE=You are the decider who produces the final answer.
+      - NEXT_AGENT_ID=
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
